@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tienda online - Cliente web</title>
+<style>
+:root { font-family: Arial, sans-serif; color: #20242a; background: #f4f6f8; }
+body { max-width: 1050px; margin: 0 auto; padding: 24px; }
+h1 { margin-bottom: 4px; } .muted { color: #606975; }
+section { background: white; border: 1px solid #dfe3e8; border-radius: 12px; padding: 18px; margin: 16px 0; }
+form { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 10px; }
+input, select, button { font: inherit; padding: 10px; border: 1px solid #cbd2d9; border-radius: 7px; }
+button { cursor: pointer; background: #155eef; color: white; border: 0; }
+button.secondary { background: #495566; } .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+pre { white-space: pre-wrap; overflow-wrap:anywhere; background:#f4f6f8; padding:12px; border-radius:8px; }
+.item { padding: 10px 0; border-bottom:1px solid #e5e7eb; }
+small { display:block; margin-top:6px; color:#606975; }
+</style>
+</head>
+<body>
+<h1>Tienda online</h1>
+<p class="muted">Frontend web que consume la API REST de FastAPI mediante peticiones HTTP.</p>
+
+<section>
+<h2>Conexión con la API</h2>
+<div class="row">
+<input id="baseUrl" style="flex:1;min-width:260px" value="http://127.0.0.1:8000" aria-label="Dirección base de la API">
+<button id="saveUrl">Usar esta dirección</button>
+<button class="secondary" id="refreshAll">Actualizar datos</button>
+</div>
+<small>Para otro ordenador, escribe la dirección IP del equipo servidor, por ejemplo http://192.168.1.34:8000.</small>
+<p id="status" role="status">Introduce la dirección de la API y pulsa «Actualizar datos».</p>
+</section>
+
+<section>
+<h2>Productos</h2>
+<div id="products">Pulsa «Actualizar datos» para consultar productos.</div>
+<h3>Crear producto</h3>
+<form id="productForm">
+<select id="productType" required>
+<option value="generico">Genérico</option><option value="electronico">Electrónico</option><option value="ropa">Ropa</option>
+</select>
+<input id="productName" placeholder="Nombre" required>
+<input id="productPrice" type="number" min="0.01" step="0.01" placeholder="Precio" required>
+<input id="productStock" type="number" min="0" step="1" placeholder="Stock" required>
+<input id="warranty" type="number" min="0" placeholder="Garantía (meses)">
+<input id="size" placeholder="Talla (ropa)">
+<input id="color" placeholder="Color (ropa)">
+<button type="submit">Crear producto</button>
+</form>
+</section>
+
+<section>
+<h2>Usuarios</h2>
+<div id="users">Pulsa «Actualizar datos» para consultar usuarios.</div>
+<h3>Crear usuario cliente</h3>
+<form id="userForm">
+<input id="userName" placeholder="Nombre" required>
+<input id="userEmail" type="email" placeholder="Correo electrónico" required>
+<input id="userAddress" placeholder="Dirección postal" required>
+<button type="submit">Crear usuario</button>
+</form>
+</section>
+
+<section>
+<h2>Crear pedido</h2>
+<form id="orderForm">
+<select id="orderUser" required><option value="">Selecciona un cliente</option></select>
+<select id="orderProduct" required><option value="">Selecciona un producto</option></select>
+<input id="orderQty" type="number" min="1" step="1" value="1" required>
+<button type="submit">Crear pedido</button>
+</form>
+</section>
+
+<section>
+<h2>Historial de pedidos de un usuario</h2>
+<div class="row">
+<select id="historyUser" style="min-width:260px"><option value="">Selecciona un cliente</option></select>
+<button id="loadHistory">Consultar pedidos</button>
+</div>
+<div id="history"></div>
+</section>
+
+<section><h2>Respuesta de la API</h2><pre id="output">Aquí aparecerán las respuestas JSON y los códigos HTTP.</pre></section>
+
+<script>
+let baseUrl = document.getElementById("baseUrl").value.replace(/\/$/, "");
+let users = [], products = [];
+const $ = id => document.getElementById(id);
+function showStatus(message, error=false) { $("status").textContent=message; $("status").style.color=error?"#b42318":"#187443"; }
+function showOutput(title, response, data) {
+  $("output").textContent = title + "\\nHTTP " + response.status + "\\n" + JSON.stringify(data, null, 2);
+}
+async function api(path, options={}) {
+  const response = await fetch(baseUrl + path, {
+    ...options,
+    headers: {"Content-Type":"application/json", ...(options.headers || {})}
+  });
+  let data = null;
+  const text = await response.text();
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!response.ok) throw new Error("HTTP " + response.status + ": " + JSON.stringify(data));
+  return {response, data};
+}
+function optionsFor(select, items, labelFn, placeholder) {
+  select.innerHTML = "";
+  const first = document.createElement("option"); first.value=""; first.textContent=placeholder; select.appendChild(first);
+  items.forEach(item => { const opt=document.createElement("option"); opt.value=item.id; opt.textContent=labelFn(item); select.appendChild(opt); });
+}
+async function refreshAll() {
+  baseUrl = $("baseUrl").value.trim().replace(/\/$/, "");
+  try {
+    const [ur, pr] = await Promise.all([api("/usuarios"), api("/productos")]);
+    users=ur.data; products=pr.data;
+    $("users").innerHTML = users.length ? users.map(u=>`<div class="item"><strong>${escapeHtml(u.nombre)}</strong> — ${escapeHtml(u.email)} ${u.es_admin?"(administrador)":"(cliente)"}<small>ID: ${u.id}</small></div>`).join("") : "No hay usuarios registrados.";
+    $("products").innerHTML = products.length ? products.map(p=>`<div class="item"><strong>${escapeHtml(p.nombre)}</strong> — ${Number(p.precio).toFixed(2)} € · Stock: ${p.stock} · Tipo: ${p.tipo}<small>ID: ${p.id}</small></div>`).join("") : "No hay productos registrados.";
+    const clients=users.filter(u=>!u.es_admin);
+    optionsFor($("orderUser"), clients, u=>u.nombre+" ("+u.email+")", "Selecciona un cliente");
+    optionsFor($("historyUser"), clients, u=>u.nombre+" ("+u.email+")", "Selecciona un cliente");
+    optionsFor($("orderProduct"), products.filter(p=>p.stock>0), p=>p.nombre+" — "+p.precio+" € (stock "+p.stock+")", "Selecciona un producto");
+    showStatus("Conectado. Usuarios y productos actualizados.");
+    showOutput("Consulta de usuarios y productos", pr.response, {usuarios:users, productos:products});
+  } catch(e) { showStatus("No se pudo conectar: "+e.message, true); }
+}
+function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+$("saveUrl").addEventListener("click", refreshAll);
+$("refreshAll").addEventListener("click", refreshAll);
+$("productType").addEventListener("change", () => {
+  const t=$("productType").value;
+  $("warranty").disabled=t!=="electronico"; $("size").disabled=t!=="ropa"; $("color").disabled=t!=="ropa";
+});
+$("productType").dispatchEvent(new Event("change"));
+$("productForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const tipo=$("productType").value;
+  const body={tipo,nombre:$("productName").value.trim(),precio:Number($("productPrice").value),stock:Number($("productStock").value)};
+  if(tipo==="electronico") body.meses_garantia=Number($("warranty").value);
+  if(tipo==="ropa") { body.talla=$("size").value.trim(); body.color=$("color").value.trim(); }
+  try { const r=await api("/productos",{method:"POST",body:JSON.stringify(body)}); showOutput("Producto creado",r.response,r.data); showStatus("Producto creado correctamente."); $("productForm").reset(); $("productType").dispatchEvent(new Event("change")); await refreshAll(); }
+  catch(err){showStatus(err.message,true);}
+});
+$("userForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const body={nombre:$("userName").value.trim(),email:$("userEmail").value.trim(),tipo:"cliente",direccion:$("userAddress").value.trim()};
+  try { const r=await api("/usuarios",{method:"POST",body:JSON.stringify(body)}); showOutput("Usuario creado",r.response,r.data); showStatus("Usuario creado correctamente."); $("userForm").reset(); await refreshAll(); }
+  catch(err){showStatus(err.message,true);}
+});
+$("orderForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const body={cliente_id:$("orderUser").value,items:[{producto_id:$("orderProduct").value,cantidad:Number($("orderQty").value)}]};
+  try { const r=await api("/pedidos",{method:"POST",body:JSON.stringify(body)}); showOutput("Pedido creado",r.response,r.data); showStatus("Pedido creado correctamente."); await refreshAll(); }
+  catch(err){showStatus(err.message,true);}
+});
+$("loadHistory").addEventListener("click", async ()=>{
+  const id=$("historyUser").value;
+  if(!id){showStatus("Selecciona un cliente para consultar sus pedidos.",true);return;}
+  try { const r=await api("/usuarios/"+encodeURIComponent(id)+"/pedidos"); $("history").innerHTML=r.data.length?r.data.map(p=>`<div class="item"><strong>Pedido ${p.id}</strong><br>Fecha: ${escapeHtml(p.fecha)} · Total: ${Number(p.total).toFixed(2)} €<small>${p.items.map(i=>escapeHtml(i.nombre)+" × "+i.cantidad).join(", ")}</small></div>`).join(""):"Este usuario todavía no tiene pedidos."; showOutput("Historial de pedidos",r.response,r.data); showStatus("Historial consultado correctamente."); }
+  catch(err){showStatus(err.message,true);}
+});
+</script>
+</body>
+</html>
