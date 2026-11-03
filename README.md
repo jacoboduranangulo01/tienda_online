@@ -1,6 +1,6 @@
 # Tienda Online — DevOps Práctica
 
-**Autor:** Jacob Durán Angulo
+**Autor:** JAcobo Durán Angulo
 
 ## Descripción
 Aplicación Python de una tienda online: API REST con FastAPI (usuarios, productos y pedidos),
@@ -72,3 +72,10 @@ Luego ejecuta `python cliente.py`.
 - La aplicación almacena datos en memoria, no en una base de datos.
 - El frontend usa `fetch` para peticiones HTTP; el cliente Python usa `requests`.
 - Para uso real fuera de un entorno académico, habría que restringir CORS y añadir persistencia y autenticación.
+
+## Docker
+```bash
+docker build -t tienda-online .
+docker run --rm -p 8000:8000 tienda-online
+```
+La API queda disponible en `http://127.0.0.1:8000/docs`.
