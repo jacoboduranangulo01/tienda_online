@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Secretos / configuración local (usar variables de entorno)
+.env
+*.pem
+
+# Sistema / editores
+.DS_Store
+.vscode/
+.idea/
