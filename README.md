@@ -1,81 +1,92 @@
 # Tienda Online — DevOps Práctica
 
-**Autor:** JAcobo Durán Angulo
+**Autor:** Jacobo Durán Angulo
 
 ## Descripción
 Aplicación Python de una tienda online: API REST con FastAPI (usuarios, productos y pedidos),
 un cliente Python que consume la API por HTTP y un frontend web sencillo con `fetch`.
-Los datos se guardan en memoria. Este repositorio se usa para practicar control de versiones
-con Git/GitHub y, en las siguientes prácticas, contenerización con Docker.
+Los datos se guardan en memoria (se pierden al reiniciar). El proyecto está contenerizado con Docker.
 
 ## Estructura
 ```
 .
-├── main.py              # API FastAPI
-├── schemas.py           # Esquemas Pydantic
-├── cliente.py           # Cliente HTTP (requests)
-├── models/              # Usuario, Producto, Pedido
-├── services/            # TiendaService (lógica de negocio)
-├── frontend/index.html  # Frontend web
-└── requirements.txt
+├── Dockerfile
+├── .dockerignore
+├── requirements.txt         # dependencias con versiones fijadas
+├── README.md
+└── src/
+    ├── main.py              # API FastAPI (punto de entrada)
+    ├── schemas.py           # Esquemas Pydantic
+    ├── cliente.py           # Cliente HTTP (requests)
+    ├── models/              # Usuario, Producto, Pedido
+    ├── services/            # TiendaService (lógica de negocio)
+    └── frontend/index.html  # Frontend web
 ```
 
-## 1. Preparación en Visual Studio Code
-1. Descomprime el ZIP y abre la carpeta del repositorio en Visual Studio Code.
-2. Abre Terminal > Nueva terminal.
-3. Instala las dependencias:
-   `python -m pip install -r requirements.txt`
-   En algunos equipos usa `python3 -m pip install -r requirements.txt`.
-
-## 2. Iniciar la API en el mismo equipo
-Desde la carpeta que contiene `main.py`, ejecuta:
-`python -m uvicorn main:app --reload`
-
-Abre `http://127.0.0.1:8000/docs`.
-
-## 3. Probar el cliente Python
-Deja la API ejecutándose. Abre una segunda terminal en la misma carpeta y ejecuta:
-`python cliente.py`
-
-El cliente crea un cliente de prueba y un producto, consulta las listas, crea un pedido y consulta su historial. Los datos se guardan en memoria y se pierden al reiniciar el servidor. Cada ejecución del cliente crea nuevos registros.
-
-Puedes cambiar la dirección mediante la variable de entorno `TIENDA_API_URL`; por defecto es `http://127.0.0.1:8000`.
-
-## 4. Probar el frontend
-Con la API activa, abre `frontend/index.html` en el navegador. En “Conexión con la API” deja `http://127.0.0.1:8000` y pulsa “Actualizar datos”.
-El frontend permite ver y crear productos, ver y crear clientes, crear pedidos y consultar el historial de pedidos. Los errores HTTP se muestran en pantalla.
-
-## 5. Prueba entre dos ordenadores en la misma red
-En el equipo que ejecuta la API:
-1. Consulta su IP local:
-   - Windows: `ipconfig`
-   - macOS/Linux: `ifconfig` o `ip addr`
-2. Inicia el servidor escuchando en la red:
-   `python -m uvicorn main:app --host 0.0.0.0 --port 8000`
-3. Si el firewall pregunta, permite conexiones privadas/locales al puerto 8000.
-
-En el segundo equipo, sustituye la dirección base por la IP del equipo servidor, por ejemplo:
-`http://192.168.1.34:8000`
-Prueba esa dirección en el campo de conexión del frontend y abre `http://192.168.1.34:8000/docs` en el navegador del segundo equipo.
-
-Para ejecutar `cliente.py` en el segundo equipo, establece `TIENDA_API_URL` con la IP del servidor:
-- Windows PowerShell: `$env:TIENDA_API_URL="http://192.168.1.34:8000"`
-- macOS/Linux: `export TIENDA_API_URL="http://192.168.1.34:8000"`
-Luego ejecuta `python cliente.py`.
-
-## Endpoints de la API
-- `POST /usuarios`, `GET /usuarios`, `GET /usuarios/{usuario_id}`
-- `POST /productos`, `GET /productos`, `GET /productos/{producto_id}`, `DELETE /productos/{producto_id}`
-- `POST /pedidos`, `GET /usuarios/{cliente_id}/pedidos`
-
-## Notas
-- La aplicación almacena datos en memoria, no en una base de datos.
-- El frontend usa `fetch` para peticiones HTTP; el cliente Python usa `requests`.
-- Para uso real fuera de un entorno académico, habría que restringir CORS y añadir persistencia y autenticación.
+## Ejecución local (sin Docker)
+```bash
+python3 -m pip install -r requirements.txt
+cd src
+python3 -m uvicorn main:app --reload
+```
+Documentación interactiva: http://127.0.0.1:8000/docs
 
 ## Docker
+
+### Requisitos
+Docker Desktop instalado y en ejecución (`docker --version`).
+
+### Construir la imagen
+Desde la raíz del repositorio:
 ```bash
-docker build -t tienda-online .
-docker run --rm -p 8000:8000 tienda-online
+docker build -t tienda-online:1.0.0 -t tienda-online:latest .
 ```
-La API queda disponible en `http://127.0.0.1:8000/docs`.
+
+### Ejecutar el contenedor
+```bash
+# En segundo plano, API en http://127.0.0.1:8000
+docker run -d --name tienda -p 8000:8000 tienda-online:1.0.0
+
+# En otro puerto del equipo (por ejemplo, 9000)
+docker run -d --name tienda -p 9000:8000 tienda-online:1.0.0
+
+# Cambiando el puerto interno con la variable PORT
+docker run -d --name tienda -p 9000:9000 -e PORT=9000 tienda-online:1.0.0
+```
+Para pararlo y eliminarlo: `docker stop tienda && docker rm tienda`
+
+### Variables de entorno
+| Variable | Por defecto | Descripción |
+|---|---|---|
+| `PORT` | `8000` | Puerto en el que escucha la API dentro del contenedor. |
+| `TIENDA_API_URL` | `http://127.0.0.1:8000` | Dirección de la API que usa `cliente.py`. |
+
+No se guardan secretos en la imagen ni en el repositorio.
+
+### Salida esperada y pasos de prueba
+1. Comprobar que arrancó: `docker logs tienda` debe mostrar `Uvicorn running on http://0.0.0.0:8000`.
+2. Raíz de la API: `curl http://127.0.0.1:8000/` debe devolver
+   `{"mensaje":"API de la tienda online","documentacion":"/docs"}`.
+3. Documentación: abrir http://127.0.0.1:8000/docs en el navegador.
+4. Listar productos: `curl http://127.0.0.1:8000/productos` devuelve `[]` al inicio.
+5. Ejecutar el cliente dentro del contenedor: `docker exec tienda python cliente.py`
+   debe mostrar las respuestas `HTTP 201` (usuario, producto, pedido) y `HTTP 200` (listas e historial).
+6. Comprobar que no corre como root: `docker exec tienda whoami` debe devolver `appuser`.
+
+### Publicar y descargar la imagen (Docker Hub)
+```bash
+docker login
+docker tag tienda-online:1.0.0 TU_USUARIO_DOCKERHUB/tienda-online:1.0.0
+docker tag tienda-online:1.0.0 TU_USUARIO_DOCKERHUB/tienda-online:latest
+docker push TU_USUARIO_DOCKERHUB/tienda-online:1.0.0
+docker push TU_USUARIO_DOCKERHUB/tienda-online:latest
+```
+Descargar y ejecutar desde el registry:
+```bash
+docker pull TU_USUARIO_DOCKERHUB/tienda-online:1.0.0
+docker run -d --name tienda -p 8000:8000 TU_USUARIO_DOCKERHUB/tienda-online:1.0.0
+```
+
+## Flujo de trabajo con Git
+Rama `main` protegida; el trabajo se hace en ramas `feature/*` con commits pequeños
+y se integra mediante Pull Request.
