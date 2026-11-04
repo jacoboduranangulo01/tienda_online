@@ -76,15 +76,15 @@ No se guardan secretos en la imagen ni en el repositorio.
 ### Publicar y descargar la imagen (Docker Hub)
 ```bash
 docker login
-docker tag tienda-online:1.0.0 TU_USUARIO_DOCKERHUB/tienda-online:1.0.0
-docker tag tienda-online:1.0.0 TU_USUARIO_DOCKERHUB/tienda-online:latest
-docker push TU_USUARIO_DOCKERHUB/tienda-online:1.0.0
-docker push TU_USUARIO_DOCKERHUB/tienda-online:latest
+docker tag tienda-online:1.0.0 jacoboduranangulo01/tienda-online:1.0.0
+docker tag tienda-online:1.0.0 jacoboduranangulo01/tienda-online:latest
+docker push jacoboduranangulo01/tienda-online:1.0.0
+docker push jacoboduranangulo01/tienda-online:latest
 ```
 Descargar y ejecutar desde el registry:
 ```bash
-docker pull TU_USUARIO_DOCKERHUB/tienda-online:1.0.0
-docker run -d --name tienda -p 8000:8000 TU_USUARIO_DOCKERHUB/tienda-online:1.0.0
+docker pull jacoboduranangulo01/tienda-online:1.0.0
+docker run -d --name tienda -p 8000:8000 jacoboduranangulo01/tienda-online:1.0.0
 ```
 
 ## Flujo de trabajo con Git
